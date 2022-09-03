@@ -1,16 +1,15 @@
 import asyncio
+from configparser import ConfigParser
 import logging
-from asyncio import Event, Queue, Task, TimeoutError
-from asyncio.events import AbstractEventLoop
+from asyncio import Event, Queue, Task
 from logging import Logger
+from pathlib import Path
 from typing import Any, Dict, List, NoReturn, Optional, Union
 from urllib.request import Request
 
 import discord
 import youtube_dl
-from discord import (Activity, ClientException, StageChannel,
-                     Streaming, VoiceChannel, VoiceClient,
-                     VoiceState)
+from discord import Activity, Streaming, VoiceClient, VoiceState
 from discord.player import AudioSource
 from router.configuration import Section
 
@@ -61,45 +60,48 @@ class Audio():
 
 
     def __init__(self, settings: Settings):
-        self._settings: Settings = settings
+        """
+        """
 
+        self._settings: Settings = settings
         self._connection: Event = Event()
         self._playback_event: Event = Event()
         self._playback_queue: Queue = Queue()
-        self._vclient: Optional[VoiceClient] = None
+        self._client: Optional[VoiceClient] = None
         self._current: Optional[Metadata] = None
-
         self.__setup__()
 
 
     def __setup__(self) -> None:
+        """
+        Called after instance properties are initialized.
+        """
+
         # create a config section for Audio
-        self._settings.client['Audio'] = Section('Audio', self._settings.client._parser, self._settings.client._reference)
+        self._settings.client[Audio.__name__] = Section(Audio.__name__, self._settings.client._parser, self._settings.client._reference)
         # create reference to Audio config section
-        self._config: Section = self._settings.client['Audio']
+        self._config: Section = self._settings.client[Audio.__name__]
+
 
     def __on_complete__(self, error: Optional[Exception]):
         """
-        Called when a source completes in the audio loop.
-        This is used internally and should not be called as a command.
+        Called when a request completes in the audio loop.
         """
+
         # set the playback event
         self._playback_event.set()
-        log.debug(f'Playback event is {"set" if self._playback_event.is_set() else "clear"}')
-        # log error if available
+        # log error if it was provided
         if error: log.error(error)
 
-    async def __on_dequeue__(self, metadata: Metadata) -> None:
+
+    async def __on_dequeue__(self, request: Request) -> None:
         """
-        Called when a source is retrieved from the top of the queue.
-        This is used internally and should not be called as a command.
+        Called when a request is retrieved from the queue.
         """
+
         # set the current metadata
-        self._current = metadata
-        # instantiate activity
-        activity: Activity = Streaming(name=metadata.title, url=metadata.url)
-        # change the client's presence
-        #await self._client.change_presence(activity=activity)
+        self._current = request.metadata
+
 
     async def __start__(self):
         """
@@ -109,53 +111,112 @@ class Audio():
 
         while True:
             try:
-                log.debug(f'Beginning core audio playback loop.')
-
                 # wait for the connection event to be set
                 _: True = await self._connection.wait()
+                log.debug(f"Beginning core audio playback loop")
 
-                # if the VoiceClient is not available
-                if self._vclient is None:
-                    log.debug(f'No voice client available.')
-                    log.debug('Resetting...')
+                # if the voice client is not available
+                if self._client is None:
                     # clear the connection event
                     self._connection.clear()
+                    log.debug(f"Resetting; no voice client available")
                     # restart the loop
                     continue
 
-                log.debug(f'Waiting for next audio request')
-
-                # get an audio request from the queue
+                log.debug(f"Waiting for next audio request")
+                # wait for the playback queue to return a request, or throw TimeoutError
                 request: Request = await asyncio.wait_for(self._playback_queue.get(), self.timeout)
 
-                # update presence
-                await self.__on_dequeue__(request.metadata)
-
-                log.debug(f'Beginning track \'{request.metadata.title}\'')
+                # call on dequeue logic
+                await self.__on_dequeue__(request)
 
                 # clear the playback event
                 self._playback_event.clear()
-                log.debug(f'Playback event is {"set" if self._playback_event.is_set() else "clear"}')
+                log.debug(f"Beginning track '{request.metadata.title}'")
 
                 # play the request
-                print(request.source.__dict__)
-                self._vclient.play(request.source, after=self.__on_complete__)
+                self._client.play(request.source, after=self.__on_complete__)
 
                 # wait for the playback event to be set
                 _: True = await self._playback_event.wait()
+                log.debug(f"Finishing track '{request.metadata.title}'")
 
-                log.debug(f'Finishing track \'{request.metadata.title}\'')
-
-            except TimeoutError as error:
+            except asyncio.TimeoutError as error:
                 log.error(error)
-                if self._vclient:
-                    await self._vclient.disconnect(force=True)
-                    self._vclient: Optional[VoiceClient] = None
-                self._connection.clear()
+                try:
+                    await self.__disconnect__()
+                finally:
+                    # clear the connection event
+                    self._connection.clear()
 
             except Exception as error:
                 log.error(error)
-                self._connection.clear()
+                try:
+                    await self.__disconnect__()
+                finally:
+                    # clear the connection event
+                    self._connection.clear()
+
+    
+    async def __connect__(self, interaction: discord.Interaction):
+        """
+        Connects the bot to the user's voice channel.
+        
+        ### Raises
+        - discord.ClientException:
+            You are already connected to a voice channel.
+        """
+
+        try:
+            # get the user's voice state
+            state: Optional[VoiceState] = interaction.user.voice
+            # if the user doesn't have a voice state, raise error
+            if not state:
+                raise InvalidChannelError(None)
+
+            # if the voice state does not reference a channel, raise error
+            if not state.channel:
+                raise InvalidChannelError(state.channel)
+
+            # connect to the channel and get a voice client
+            self._client: VoiceClient = await state.channel.connect()
+            # set the connection event
+            self._connection.set()
+
+        except discord.ClientException as exception:
+            log.warn(exception)
+            # ignore client exception errors
+            pass
+
+        finally:
+            pass
+
+
+    async def __disconnect__(self, *, force: bool = False):
+        """
+        Disconnects the bot from the joined voice channel.
+        """
+
+        try:
+            # if the voice client is unavailable
+            if not self._client:
+                raise ConnectionError("Voice connection unavailable")
+            # if the voice client is not connected
+            if not self._client.is_connected():
+                raise ConnectionError("Voice connection disconnected")
+
+            # disconnect the voice client and clear the voice client
+            self._client = await self._client.disconnect(force=force)
+            # clear the connection event
+            self._connection.clear()
+            
+        except Exception as exception:
+            log.warn(exception)
+            pass
+        
+        finally:
+            pass
+
     
     async def __query__(self, interaction: discord.Interaction, query: str, *, downloader: Optional[youtube_dl.YoutubeDL] = None) -> Optional[Metadata]:
         """
@@ -168,17 +229,14 @@ class Audio():
         
         # use provided downloader or initialize one if not provided
         downloader = downloader if downloader else youtube_dl.YoutubeDL(defaults)
-
         # extract info for the provided query
         data: Dict[str, Any] = downloader.extract_info(query, download=False)
 
         # get the entries property, if it exists
         entries: Optional[List[Any]] = data.get('entries')
-
         # if the data contains a list of entries, use the list;
         # otherwise create list from data (single entry)
         results: List[Dict[str, Any]] = entries if entries else [data]
-
         # return the first available result
         result: Optional[Dict[str, Any]] = results[0]
 
@@ -188,11 +246,7 @@ class Audio():
 
     async def __queue__(self, metadata: Metadata, options: List[str] = list()) -> Request:
         """
-        Add source media to the media queue.
-
-        Parameters:
-            - url: A URL link to a YouTube video to add to the queue.
-            - search: Search terms to query YouTube for a source video.
+        Adds metadata to the queue.
         """
 
         # add the audio filter parameter to the options list
@@ -209,75 +263,40 @@ class Audio():
         return request
 
 
-    async def __connect__(self, interaction: discord.Interaction):
+    async def __pause__(self) -> None:
         """
-        Joins the user's voice channel.
+        Pauses the current track.
         """
-
-        try:
-            state: Optional[VoiceState] = interaction.user.voice
-            if not state: raise InvalidChannelError(None)
-
-            channel: Optional[Union[VoiceChannel, StageChannel]] = state.channel
-            if not channel: raise InvalidChannelError(channel)
-
-            self._vclient: VoiceClient = await channel.connect()
-
-            self._connection.set()
-
-        except ClientException:
-            pass
+        # pause the voice client if available
+        if self._client: self._client.pause()
+        #
+        return
 
 
-    async def __disconnect__(self):
-        """
-        Disconnects the bot from the joined voice channel.
-        """
-
-        try:
-            if not self._vclient:
-                raise ConnectionError('Cannot disconnect: Not connected to begin with.')
-            elif not self._vclient.is_connected():
-                raise ConnectionError('Cannot disconnect: Not connected to begin with.')
-            else:
-                self._playback_event.set()
-                await self._vclient.disconnect()
-        except ConnectionError:
-            raise
-        except:
-            await self._vclient.disconnect(force=True)
-        finally:
-            self._connection.clear()
-
-
-    async def __pause__(self):
-        """
-        Pauses audio playback.
-        """
-        if self._vclient:
-            self._vclient.pause()
-            return
-
-
-    async def __skip__(self) -> Metadata:
+    async def __skip__(self) -> Optional[Metadata]:
         """
         Skips the current track.
         """
-        skipped: Metadata = self._current
-        if self._vclient:
-            self._vclient.source = AudioSource()
-            return skipped
+
+        # store reference to the current metadata
+        skipped: Optional[Metadata] = self._current
+        # stop the voice client if available
+        if self._client: self._client.stop()
+        # return the skipped metadata
+        return skipped
 
     
-    async def __stop__(self):
+    async def __stop__(self) -> None:
         """
         Stops audio playback.
         """
-        if self._vclient:
-            self._vclient.stop()
-            await self.__disconnect__()
-            return
 
+        # stop the voice client if available
+        if self._client: self._client.stop()
+        # disconnect the voice client
+        await self.__disconnect__()
+        #
+        return
 
 
 

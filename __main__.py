@@ -61,7 +61,10 @@ async def play(
 
     try:
         await core._audio.__connect__(interaction)
+    except discord.ClientException as exception:
+        log.warn(exception)
 
+    try:
         # download metadata for the provided query
         metadata: Optional[Metadata] = await core._audio.__query__(interaction, f'ytsearch:{query}')
         if not metadata: raise Exception(f"No result found for '{query}'.")        
@@ -84,6 +87,7 @@ async def play(
     
     except Exception as exception:
         await followup.send(exception)
+        
 
 @core.tree.command()
 async def skip(

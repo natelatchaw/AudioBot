@@ -1,6 +1,9 @@
 # VSCode
 .vscode
 
+# venv
+.environment/
+
 # configuration
 config/
 *.ini
