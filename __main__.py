@@ -72,7 +72,7 @@ async def demerits(
     demerit_list: List[Demerit] = await core._dmanager.get(interaction.user.id)
 
     embed: discord.Embed = discord.Embed()
-    embed.set_author(name=interaction.user.display_name, url=interaction.user.avatar.url)
+    embed.set_author(name=interaction.user.display_name, url=interaction.user.display_avatar.url)
     embed.timestamp = interaction.created_at
 
     embed.title = f"Demerit List"
