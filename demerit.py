@@ -110,6 +110,5 @@ class DemeritManager():
     async def get(self, user_id: int) -> List[Demerit]:
         # select all demerit rows
         demerits: List[Demerit] = [Demerit.__from_row__(row) for row in self._database.select(Demerit)]
-        print(demerits)
         # filter demerits by the provided user id
         return [demerit for demerit in demerits if demerit.user_id == user_id]
