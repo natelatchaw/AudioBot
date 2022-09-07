@@ -4,6 +4,7 @@ import sys
 from typing import NoReturn
 import discord
 from audio import Audio
+from demerit import DemeritManager
 from settings import Settings
 
 log: logging.Logger = logging.getLogger(__name__)
@@ -21,6 +22,7 @@ class Core(discord.Client):
     def __init__(self, *, intents: discord.Intents = discord.Intents.default()) -> None:
         self._settings: Settings = Settings()        
         self._audio: Audio = Audio(self._settings)
+        self._dmanager: DemeritManager = DemeritManager(self._settings)
 
         super().__init__(intents=intents)
         self._tree = discord.app_commands.CommandTree(self)

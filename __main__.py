@@ -6,7 +6,9 @@ from typing import List, Optional, Union
 import discord
 
 from core import Core
+from demerit import Demerit
 from metadata import Metadata
+from modals.demerit import DemeritModal
 from request import Request
 
 
@@ -44,6 +46,19 @@ def get_embed(interaction: discord.Interaction, metadata: Metadata) -> discord.E
 core: Core = Core(intents=discord.Intents.all())
 
 
+@core.tree.context_menu()
+async def demerit(
+    interaction: discord.Interaction,
+    member: discord.Member
+) -> None:
+    """
+    """
+
+    user: discord.Member = member
+    author: discord.Member = interaction.user
+    await interaction.response.send_modal(DemeritModal(user, author, core._dmanager))
+
+
 @core.tree.command()
 @discord.app_commands.describe(query='Audio content to search for', speed='Audio playback multiplier')
 async def play(
@@ -54,6 +69,7 @@ async def play(
     """
     Plays audio in a voice channel
     """
+
     followup: discord.Webhook = interaction.followup
     await interaction.response.defer(ephemeral=False, thinking=True)
 
@@ -63,11 +79,14 @@ async def play(
         await core._audio.__connect__(interaction)
     except discord.ClientException as exception:
         log.warn(exception)
+    except Exception as exception:
+        await followup.send(exception)
+        return
 
     try:
         # download metadata for the provided query
         metadata: Optional[Metadata] = await core._audio.__query__(interaction, f'ytsearch:{query}')
-        if not metadata: raise Exception(f"No result found for '{query}'.")        
+        if not metadata: raise Exception(f"No result found for '{query}'.")
 
         # get multiplier if speed was provided
         multiplier: Optional[float] = float(speed) if speed else None
@@ -96,6 +115,7 @@ async def skip(
     """
     Skips the currently playing song
     """
+
     followup: discord.Webhook = interaction.followup
     await interaction.response.defer(ephemeral=False, thinking=True)
 
@@ -118,6 +138,7 @@ async def timeout(
     """
     Sets the bot's timeout duration in a voice channel
     """
+
     followup: discord.Webhook = interaction.followup
     await interaction.response.defer(ephemeral=False, thinking=True)
 
