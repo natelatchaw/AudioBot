@@ -1,15 +1,13 @@
 import asyncio
-from configparser import ConfigParser
 import logging
-from asyncio import Event, Queue, Task
+from asyncio import Event, Queue
 from logging import Logger
-from pathlib import Path
-from typing import Any, Dict, List, NoReturn, Optional, Union
+from typing import Any, Dict, List, Optional
 from urllib.request import Request
 
 import discord
 import youtube_dl
-from discord import Activity, Streaming, VoiceClient, VoiceState
+from discord import VoiceClient, VoiceState
 from discord.player import AudioSource
 from router.configuration import Section
 
@@ -61,12 +59,13 @@ class Audio():
 
     def __init__(self, settings: Settings):
         """
+        Initializes property states.
         """
 
         self._settings: Settings = settings
         self._connection: Event = Event()
-        self._playback_event: Event = Event()
-        self._playback_queue: Queue = Queue()
+        self._playback: Event = Event()
+        self._queue: Queue = Queue()
         self._client: Optional[VoiceClient] = None
         self._current: Optional[Metadata] = None
         self.__setup__()
@@ -83,88 +82,66 @@ class Audio():
         self._config: Section = self._settings.client[Audio.__name__]
 
 
-    def __on_complete__(self, error: Optional[Exception]):
-        """
-        Called when a request completes in the audio loop.
-        """
-
-        # set the playback event
-        self._playback_event.set()
-        # log error if it was provided
-        if error: log.error(error)
-
-
-    async def __on_dequeue__(self, request: Request) -> None:
-        """
-        Called when a request is retrieved from the queue.
-        """
-
-        # set the current metadata
-        self._current = request.metadata
-
-
     async def __start__(self):
         """
         The core audio playback loop.
-        This is used internally and should not be called as a command.
+        This is used internally and should not be called outside of initialization.
         """
 
         while True:
             try:
                 # wait for the connection event to be set
                 _: True = await self._connection.wait()
+
                 log.debug(f"Beginning core audio playback loop")
 
                 # if the voice client is not available
                 if self._client is None:
-                    # clear the connection event
-                    self._connection.clear()
                     log.debug(f"Resetting; no voice client available")
-                    # restart the loop
+                    self._connection.clear()
                     continue
 
-                log.debug(f"Waiting for next audio request")
-                # wait for the playback queue to return a request, or throw TimeoutError
-                request: Request = await asyncio.wait_for(self._playback_queue.get(), self.timeout)
-
-                # call on dequeue logic
+                log.debug(f"Waiting for next audio request")                
+                request: Request = await asyncio.wait_for(self._queue.get(), self.timeout)
+                
+                log.debug(f"Receiving track '{request.metadata.title}'")
                 await self.__on_dequeue__(request)
 
-                # clear the playback event
-                self._playback_event.clear()
                 log.debug(f"Beginning track '{request.metadata.title}'")
-
-                # play the request
-                self._client.play(request.source, after=self.__on_complete__)
-
-                # wait for the playback event to be set
-                _: True = await self._playback_event.wait()
+                await self.__play__(request.source)
+ 
                 log.debug(f"Finishing track '{request.metadata.title}'")
-
-            except asyncio.TimeoutError as error:
-                log.error(error)
-                try:
-                    await self.__disconnect__()
-                finally:
-                    # clear the connection event
-                    self._connection.clear()
 
             except Exception as error:
                 log.error(error)
-                try:
-                    await self.__disconnect__()
-                finally:
-                    # clear the connection event
-                    self._connection.clear()
+                await self.__disconnect__()
+
+
+    async def __play__(self, source: AudioSource) -> None:
+        """
+        Plays an AudioSource to the voice channel.
+        """
+
+        # clear the playback event
+        self._playback.clear()
+
+        def __on_complete__(exception: Optional[Exception]) -> None:
+            # set the playback event
+            self._playback.set()
+            # log exception if available
+            if exception: log.error(exception)
+
+        # play the request on the voice client if available
+        if self._client: self._client.play(source, after=__on_complete__)
+        else: raise NotConnectedError()
+
+        # wait for the playback event to be set
+        _: True = await self._playback.wait()
 
     
     async def __connect__(self, interaction: discord.Interaction):
         """
         Connects the bot to the user's voice channel.
-        
-        ### Raises
-        - discord.ClientException:
-            You are already connected to a voice channel.
         """
 
         try:
@@ -185,11 +162,6 @@ class Audio():
 
         except discord.ClientException as exception:
             log.warn(exception)
-            # ignore client exception errors
-            pass
-
-        finally:
-            pass
 
 
     async def __disconnect__(self, *, force: bool = False):
@@ -207,15 +179,13 @@ class Audio():
 
             # disconnect the voice client and clear the voice client
             self._client = await self._client.disconnect(force=force)
-            # clear the connection event
-            self._connection.clear()
             
         except Exception as exception:
             log.warn(exception)
-            pass
-        
-        finally:
-            pass
+
+        finally:            
+            # clear the connection event
+            self._connection.clear()
 
     
     async def __query__(self, interaction: discord.Interaction, query: str, *, downloader: Optional[youtube_dl.YoutubeDL] = None) -> Optional[Metadata]:
@@ -258,7 +228,7 @@ class Audio():
         request: Request = Request(source, metadata)
 
         # add the request to the queue
-        await self._playback_queue.put(request)
+        await self._queue.put(request)
         # return the request
         return request
 
@@ -269,8 +239,7 @@ class Audio():
         """
         # pause the voice client if available
         if self._client: self._client.pause()
-        #
-        return
+        else: raise NotConnectedError()
 
 
     async def __skip__(self) -> Optional[Metadata]:
@@ -282,6 +251,7 @@ class Audio():
         skipped: Optional[Metadata] = self._current
         # stop the voice client if available
         if self._client: self._client.stop()
+        else: raise NotConnectedError()
         # return the skipped metadata
         return skipped
 
@@ -293,10 +263,18 @@ class Audio():
 
         # stop the voice client if available
         if self._client: self._client.stop()
+        else: raise NotConnectedError()
         # disconnect the voice client
         await self.__disconnect__()
-        #
-        return
+
+
+    async def __on_dequeue__(self, request: Request) -> None:
+        """
+        Called when a request is retrieved from the queue.
+        """
+
+        # set the current metadata
+        self._current = request.metadata
 
 
 

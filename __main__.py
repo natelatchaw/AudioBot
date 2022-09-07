@@ -110,14 +110,8 @@ async def play(
     options: List[str] = list()
 
     try:
+        # connect to the voice channel
         await core._audio.__connect__(interaction)
-    except discord.ClientException as exception:
-        log.warn(exception)
-    except Exception as exception:
-        await followup.send(exception)
-        return
-
-    try:
         # download metadata for the provided query
         metadata: Optional[Metadata] = await core._audio.__query__(interaction, f'ytsearch:{query}')
         if not metadata: raise Exception(f"No result found for '{query}'.")
