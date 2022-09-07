@@ -84,8 +84,8 @@ async def demerits(
         except:
             display_name = "Unknown User"
 
-        name: str = f"{display_name} @ {demerit.timestamp}"
-        value: str = f"{demerit.reason}\n{demerit.details}"
+        name: str = f"{display_name} @ {demerit.timestamp} for {demerit.reason}"
+        value: str = demerit.details
         embed.add_field(name=name, value=value, inline=False)
 
     # send the embed
