@@ -1,4 +1,5 @@
 import asyncio
+from copyreg import dispatch_table
 import logging
 import sys
 from typing import List, Optional, Union
@@ -57,6 +58,38 @@ async def demerit(
     user: discord.Member = member
     author: discord.Member = interaction.user
     await interaction.response.send_modal(DemeritModal(user, author, core._dmanager))
+        
+
+@core.tree.command()
+async def demerits(
+    interaction: discord.Interaction
+) -> None:
+    """
+    Displays your demerits
+    """
+
+    followup: discord.Webhook = interaction.followup
+    await interaction.response.defer(ephemeral=False, thinking=True)
+    
+    demerit_list: List[Demerit] = await core._dmanager.get(interaction.user.id)
+
+    embed: discord.Embed = discord.Embed()
+    embed.title = "Demerits"
+    embed.description = "Whatever idfas"
+    for demerit in demerit_list:
+        display_name: Optional[str] = None
+        try:
+            author: discord.Member = await interaction.guild.fetch_member(demerit.author_id)
+            display_name = author.display_name
+        except:
+            display_name = "Unknown User"
+
+        name: str = f"{display_name} @ {demerit.timestamp}"
+        value: str = f"{demerit.reason}\n{demerit.details}"
+        embed.add_field(name=name, value=value, inline=False)
+
+    # send the embed
+    await followup.send(embed=embed)
 
 
 @core.tree.command()

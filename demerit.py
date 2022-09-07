@@ -60,9 +60,9 @@ class Demerit(Storable):
         # create timestamp column
         t_builder.addColumn(c_builder.setName('Timestamp').setType('TIMESTAMP').column())
         # create title column
-        t_builder.addColumn(c_builder.setName('Title').setType('TEXT').column())
+        t_builder.addColumn(c_builder.setName('Reason').setType('TEXT').column())
         # create description column
-        t_builder.addColumn(c_builder.setName('Description').setType('TEXT').column())
+        t_builder.addColumn(c_builder.setName('Details').setType('TEXT').column())
         
         # build the table
         table: Table = t_builder.table()
@@ -88,9 +88,9 @@ class Demerit(Storable):
         # Get timestamp value from the row
         timestamp: datetime = row['Timestamp']
         # Get title value from the row
-        title: str = row['Title']
+        title: str = row['Reason']
         # Get description value from the row
-        description: str = row['Description']
+        description: str = row['Details']
         # return the Demerit
         return Demerit(snowflake, user_id, author_id, timestamp, title, description)
     
@@ -110,5 +110,6 @@ class DemeritManager():
     async def get(self, user_id: int) -> List[Demerit]:
         # select all demerit rows
         demerits: List[Demerit] = [Demerit.__from_row__(row) for row in self._database.select(Demerit)]
+        print(demerits)
         # filter demerits by the provided user id
-        return [demerit for demerit in demerits if demerit.user_id is user_id]
+        return [demerit for demerit in demerits if demerit.user_id == user_id]
