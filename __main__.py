@@ -1,5 +1,4 @@
 import asyncio
-from copyreg import dispatch_table
 import logging
 import sys
 from typing import List, Optional, Union
@@ -11,7 +10,6 @@ from demerit import Demerit
 from metadata import Metadata
 from modals.demerit import DemeritModal
 from request import Request
-
 
 root: logging.Logger = logging.getLogger()
 
@@ -74,8 +72,10 @@ async def demerits(
     demerit_list: List[Demerit] = await core._dmanager.get(interaction.user.id)
 
     embed: discord.Embed = discord.Embed()
-    embed.title = "Demerits"
-    embed.description = "Whatever idfas"
+    embed.set_author(name=interaction.user.display_name, url=interaction.user.avatar.url)
+    embed.timestamp = interaction.created_at
+
+    embed.title = f"Demerit List"
     for demerit in demerit_list:
         display_name: Optional[str] = None
         try:
@@ -84,7 +84,8 @@ async def demerits(
         except:
             display_name = "Unknown User"
 
-        name: str = f"{display_name} @ {demerit.timestamp} for {demerit.reason}"
+        date: str = demerit.timestamp.strftime('%Y-%m-%d') if demerit.timestamp else 'XXXX-XX-XX'
+        name: str = f"[{date}] {display_name} for '{demerit.reason}'"
         value: str = demerit.details if demerit.details else "No details provided"
         embed.add_field(name=name, value=value, inline=False)
 
