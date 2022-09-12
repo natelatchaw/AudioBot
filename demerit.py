@@ -12,69 +12,33 @@ from database.table import Table, TableBuilder
 from settings import Settings
 
 
-class Demerit(Storable):
+class Demerit(Storable[int]):
+
+    __slots__ = [
+        'user_id',
+        'author_id',
+        'timestamp',
+        'reason',
+        'details'
+    ]
+
+    user_id: int
+
+    author_id: int
+
+    timestamp: datetime
+
+    reason: str
+
+    details: str
+
     def __init__(self, snowflake: int, user_id: int, author_id: int, timestamp: datetime, reason: str, details: str):
-        self._snowflake: int = snowflake
-        self._user_id: int = user_id
-        self._author_id: int = author_id
-        self._timestamp: datetime = timestamp
-        self._reason: str = reason
-        self._details: str = details
-
-    @property
-    def user_id(self) -> int:
-        return self._user_id
-
-    @property
-    def author_id(self) -> int:
-        return self._author_id
-
-    @property
-    def timestamp(self) -> datetime:
-        return self._timestamp
-
-    @property
-    def reason(self) -> str:
-        return self._reason
-
-    @property
-    def details(self) -> str:
-        return self._details
-
-    
-    @classmethod
-    def __table__(self) -> Table:
-        # create a table builder
-        t_builder: TableBuilder = TableBuilder()
-        # set the table's name
-        t_builder.setName('Demerits')
-
-        # create a column builder
-        c_builder: ColumnBuilder = ColumnBuilder()
-        # create Snowflake column
-        t_builder.addColumn(c_builder.setName('Snowflake').setType('INTEGER').isPrimary().isUnique().column())
-        # create user ID column
-        t_builder.addColumn(c_builder.setName('UserID').setType('INTEGER').column())
-        # create author ID column
-        t_builder.addColumn(c_builder.setName('AuthorID').setType('INTEGER').column())
-        # create timestamp column
-        t_builder.addColumn(c_builder.setName('Timestamp').setType('TIMESTAMP').column())
-        # create title column
-        t_builder.addColumn(c_builder.setName('Reason').setType('TEXT').column())
-        # create description column
-        t_builder.addColumn(c_builder.setName('Details').setType('TEXT').column())
-        
-        # build the table
-        table: Table = t_builder.table()
-        # return the table
-        return table
-
-
-    def __values__(self) -> Tuple[Any, ...]:
-        # create a tuple with the corresponding values
-        value: Tuple[Any, ...] = (self._snowflake, self._user_id, self._author_id, self._timestamp, self._reason, self._details)
-        # return the tuple
-        return value
+        self.id: int = snowflake
+        self.user_id: int = user_id
+        self.author_id: int = author_id
+        self.timestamp: datetime = timestamp
+        self.reason: str = reason
+        self.details: str = details
         
 
     @classmethod
