@@ -57,12 +57,14 @@ class Storable(Generic[TIdentifier]):
         This is used by the Database class to create a table.
         """
         
-        slots: List[str] = chain.from_iterable(getattr(parent, '__slots__', []) for parent in cls.__mro__)
+        slots: List[str] = chain.from_iterable(getattr(type, '__slots__', []) for type in cls.__mro__)
         
+        # create a table builder
         t_builder: TableBuilder = TableBuilder()
         # set the table's name to the class name
         t_builder.setName(cls.__name__)
 
+        # for each slot property
         for slot in slots:            
             # get the property's name
             property_name: str = getattr(cls, slot).__name__
@@ -93,9 +95,10 @@ class Storable(Generic[TIdentifier]):
         """
         
         cls: Type[TStorable] = self.__class__
-        slots: List[str] = chain.from_iterable(getattr(parent, '__slots__', []) for parent in cls.__mro__)
+        slots: List[str] = chain.from_iterable(getattr(type, '__slots__', []) for type in cls.__mro__)
         
         return tuple(getattr(self, slot) for slot in slots)
+
 
     @classmethod
     @abstractmethod
