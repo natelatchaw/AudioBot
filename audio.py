@@ -17,8 +17,8 @@ from discord.app_commands import describe
 
 log: Logger = logging.getLogger(__name__)
 
-location: Path = Path('./audio/__init__.py')
-spec: Optional[ModuleSpec] = importlib.util.spec_from_file_location('audio', location)
+module_location: Path = Path(__file__).parent.joinpath('./audio/__init__.py').absolute()
+spec: Optional[ModuleSpec] = importlib.util.spec_from_file_location('audio', module_location)
 if not spec: raise Exception('Could not get ModuleSpec')
 log.debug(f'Found companion ModuleSpec {spec.name}')
 
