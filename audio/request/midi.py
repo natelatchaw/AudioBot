@@ -44,7 +44,7 @@ class MidiRequest(Request):
         sampling_rate: int = 44100
 
         # initialize midi with data and synthesize to waveform
-        waveform: NDArray = PrettyMIDI(midi_file=midi_fp).fluidsynth(fs=sampling_rate, sf2_path=str(sf2_path))
+        waveform: NDArray = PrettyMIDI(midi_file=midi_fp).fluidsynth(fs=sampling_rate, sf2_path=str(sf2_path) if sf2_path else None)
         # calculate max amplitude
         amplitude: int = np.iinfo(np.int16).max
         # calculate the maximum of the waveform
