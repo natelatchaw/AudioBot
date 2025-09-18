@@ -1,7 +1,7 @@
 import logging
 from logging import Logger
 import re
-from typing import Any, Dict, List, Literal, Mapping, Optional, TypedDict, Union
+from typing import Any, Dict, List, Literal, Mapping, Optional
 
 import discord
 import yt_dlp as youtube_dl

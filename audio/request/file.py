@@ -1,16 +1,15 @@
 import importlib.util
 import logging
-from collections.abc import Buffer
+from collections.abc import Buffer, Mapping
 from io import BufferedIOBase, BytesIO
 from logging import Logger
-from typing import (Any, Dict, Iterable, Iterator, List, Literal, Optional,
+from typing import (Any, Dict, Iterable, Iterator, List, Literal, Mapping, Optional,
                     Union)
 
 import discord
 from discord import AudioSource
 
 from ..embed import RequestEmbed
-from ..error import AudioError
 from ..metadata import Metadata
 from ..request import Request
 
@@ -128,7 +127,7 @@ def __parse_tags__(metadata: Metadata, binary: BufferedIOBase, tagging_keys: Dic
     # retrieve the file's tags
     tags: mutagen.Tags = file.tags # type: ignore
     # if the tags instance is not a type of DictProxy, raise exception
-    if not isinstance(tags, DictMixin): raise Exception()
+    if not isinstance(tags, Mapping): raise Exception()
 
     # get the title key from the tagging keys dictionary
     title_key: Optional[str] = tagging_keys.get('title', None)

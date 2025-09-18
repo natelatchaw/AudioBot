@@ -33,8 +33,8 @@ class RequestEmbed(discord.Embed):
         self.set_thumbnail(url=thumbnail_url if not large_image else None)
 
     @property
-    def file(self) -> Union[discord.File, Literal[discord.utils.MISSING]]: # type: ignore
-        return self._file if self._file else discord.utils.MISSING
+    def file(self) -> Optional[discord.File]:
+        return self._file
         
 
 class RequestQueueEmbed(discord.Embed):
@@ -67,8 +67,8 @@ class RequestQueueEmbed(discord.Embed):
         for item in queue: self.add_field(name=item.title, value=item.artist, inline=False)
 
     @property
-    def file(self) -> Union[discord.File, Literal[discord.utils.MISSING]]: # type: ignore
-        return self._file if self._file else discord.utils.MISSING
+    def file(self) -> Optional[discord.File]:
+        return self._file
         
 
 class RequestFrequencyEmbed(discord.Embed):

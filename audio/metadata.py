@@ -4,7 +4,7 @@ import importlib.util
 from io import BytesIO
 from sqlite3 import Row
 from typing import Any, Optional, Tuple, Type
-from bot.database import Database, ColumnBuilder, Table, TableBuilder, TStorable
+from bot.database import ColumnBuilder, Table, TableBuilder, TStorable
 
 import requests
 
@@ -16,7 +16,6 @@ class Metadata():
         self.title:     Optional[str] = title
         self.artist:    Optional[str] = artist
         self.hyperlink: Optional[str] = hyperlink
-        self.media_url: Optional[str] = media_url
         self.thumbnail: Optional[bytes] = None
 
         if importlib.util.find_spec('PIL') and thumbnail is not None:                
@@ -52,13 +51,12 @@ class Metadata():
         table.addColumn(column.setName('Title').setType('TEXT').build())
         table.addColumn(column.setName('Artist').setType('TEXT').build())
         table.addColumn(column.setName('Hyperlink').setType('TEXT').build())
-        table.addColumn(column.setName('MediaURL').setType('TEXT').build())
         table.addColumn(column.setName('Thumbnail').setType('BLOB').build())
         return table.build()
 
     def __values__(self) -> Tuple[Any, ...]:
         # create a tuple with the corresponding values
-        value: Tuple[Any, ...] = (self.id, self.user_id, self.title, self.artist, self.hyperlink, self.media_url, self.thumbnail)
+        value: Tuple[Any, ...] = (self.id, self.user_id, self.title, self.artist, self.hyperlink, self.thumbnail)
         # return the tuple
         return value
 
@@ -79,9 +77,6 @@ class Metadata():
 
         hyperlink: Optional[str] = row['Hyperlink'] if isinstance(row['Hyperlink'], str) else None
         metadata.hyperlink = hyperlink
-
-        media_url: Optional[str] = row['MediaURL'] if isinstance(row['MediaURL'], str) else None
-        metadata.media_url = media_url
 
         thumbnail: Optional[bytes] = row['Thumbnail'] if isinstance(row['Thumbnail'], bytes) else None
         metadata.thumbnail = thumbnail

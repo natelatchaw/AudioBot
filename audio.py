@@ -137,8 +137,8 @@ class Audio():
             # connect the player to the channel
             await self.player.connect(interaction)
 
-            request: Request = FileRequest(interaction, file, before_options=None, after_options=['-b:a', '192k'])
-            if isinstance(request, FileRequest): await request.parse()
+            request: FileRequest = FileRequest(interaction, file, before_options=None, after_options=['-b:a', '192k'])
+            await request.parse()
 
             # queue the request
             await self.player.queue(interaction, request)
@@ -146,7 +146,7 @@ class Audio():
             # generate an embed from the song request data
             embed: RequestEmbed = await request.as_embed(interaction)
             # send the embed
-            await followup.send(embed=embed, file=embed.file)
+            await followup.send(embed=embed, file=embed.file if embed.file else discord.utils.MISSING)
 
         except Exception as exception:
             await followup.send(f'{exception}')
@@ -166,8 +166,8 @@ class Audio():
             await self.player.connect(interaction)
 
             # create a request from the provided query
-            request: Request = YouTubeRequest(interaction, query, before_options=self.before_options, after_options=self.after_options)
-            if isinstance(request, YouTubeRequest): await request.parse()
+            request: YouTubeRequest = YouTubeRequest(interaction, query, before_options=self.before_options, after_options=self.after_options)
+            await request.parse()
 
             # queue the request
             await self.player.queue(interaction, request)
@@ -175,7 +175,7 @@ class Audio():
             # generate an embed from the song request data
             embed: RequestEmbed = await request.as_embed(interaction)
             # send the embed
-            await followup.send(embed=embed, file=embed.file)
+            await followup.send(embed=embed, file=embed.file if embed.file else discord.utils.MISSING)
 
         except Exception as exception:
             await followup.send(f'{exception}')
@@ -203,7 +203,7 @@ class Audio():
             # generate an embed from the song request data
             embed: RequestEmbed = await request.as_embed(interaction)
             # send the embed
-            await followup.send(embed=embed, file=embed.file)
+            await followup.send(embed=embed, file=embed.file if embed.file else discord.utils.MISSING)
 
         except Exception as exception:
             await followup.send(f'{exception}')
@@ -224,7 +224,7 @@ class Audio():
             # get reference to the current request's metadata
             metadata: Metadata = self.player.current.metadata
             # get the first 5 upcoming requests' metadata
-            queue: List[Metadata] = [request.metadata for request in list(self.player._queue)][:5]
+            queue: List[Metadata] = [request.metadata for request in list(self.player._queue)][:5] # type: ignore
 
             # generate an embed from the song request data
             embed: RequestEmbed = RequestEmbed(metadata, interaction.user, interaction.created_at, large_image=False)
@@ -232,7 +232,7 @@ class Audio():
             for item in queue: embed.add_field(name=item.title, value=item.artist, inline=False)
 
             # send the embed
-            await followup.send(embed=embed, file=embed.file)
+            await followup.send(embed=embed, file=embed.file if embed.file else discord.utils.MISSING)
 
         except AudioError as exception:
             await followup.send(f'{exception}')
