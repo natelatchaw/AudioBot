@@ -1,0 +1,12 @@
+git+https://github.com/natelatchaw/DiscordBot
+
+discord.py[voice]
+requests
+yt-dlp
+Pillow
+mutagen
+typing-extensions
+
+pyfluidsynth
+pretty_midi
+scipy
