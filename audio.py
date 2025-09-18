@@ -7,8 +7,9 @@ from datetime import datetime
 from importlib.machinery import ModuleSpec
 from logging import Logger
 from pathlib import Path
+import sys
 from types import ModuleType
-from typing import Any, Dict, List, MutableMapping, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Literal, MutableMapping, Optional, Sequence, Tuple
 
 import discord
 from bot.database import Database
@@ -17,16 +18,21 @@ from discord.app_commands import describe
 
 log: Logger = logging.getLogger(__name__)
 
+module_name: Literal['audio'] = 'audio'
 module_location: Path = Path(__file__).parent.joinpath('./audio/__init__.py').absolute()
-spec: Optional[ModuleSpec] = importlib.util.spec_from_file_location('audio', module_location)
+log.debug(f'Searching for companion module @ {module_location}')
+
+spec: Optional[ModuleSpec] = importlib.util.spec_from_file_location(module_name, module_location)
 if not spec: raise Exception('Could not get ModuleSpec')
 log.debug(f'Found companion ModuleSpec {spec.name}')
 
 module: Optional[ModuleType] = importlib.util.module_from_spec(spec) if spec else None
 if not module: raise Exception('Could not find ModuleType')
 log.debug(f'Found companion ModuleType {module.__name__}')
+sys.modules[module_name] = module
 
-if spec.loader: spec.loader.exec_module(module)
+if not spec.loader: raise Exception(f'Could not find Loader for ModuleSpec {module.__name__}')
+spec.loader.exec_module(module)
 log.debug(f'Imported companion ModuleType {module.__name__} from {module.__path__}')
 
 from audio import (AudioError, FileRequest, Metadata, MidiRequest, Player,
