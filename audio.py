@@ -178,6 +178,9 @@ class Audio():
             # queue the request
             await self.player.queue(interaction, request)
 
+            # insert metadata into database
+            self._database.insert(Metadata, request.metadata)
+
             # generate an embed from the song request data
             embed: RequestEmbed = await request.as_embed(interaction)
             # send the embed
