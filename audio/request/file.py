@@ -1,10 +1,8 @@
-import importlib.util
 import logging
-from collections.abc import Buffer, Mapping
+from collections.abc import Buffer
 from io import BufferedIOBase, BytesIO
 from logging import Logger
-from typing import (Any, Dict, Iterable, Iterator, List, Literal, Mapping,
-                    Optional, Union)
+from typing import (List, Literal, Optional)
 
 import discord
 from discord import AudioSource

@@ -64,6 +64,20 @@ class Audio():
         if value: self._config[key] = str(value)
 
     @property
+    def tone(self) -> Optional[Path]:
+        key: str = 'tone'
+        value: Optional[str] = None
+        try:
+            value = self._config[key]
+            path: Path = Path(value)
+            if not path.exists(): return None
+            if not path.is_file(): return None
+            return path
+        except:
+            self._config[key] = ''
+            return None
+
+    @property
     def update_activity(self) -> Optional[bool]:
         key: str = 'update_activity'
         value: Optional[str] = None
@@ -111,7 +125,7 @@ class Audio():
         """
 
         self._config: MutableMapping[str, str] = config        
-        self.player: Player = Player(timeout=self.timeout)
+        self.player: Player = Player(timeout=self.timeout, tone=self.tone)
 
     async def __setup__(self) -> None:
         """

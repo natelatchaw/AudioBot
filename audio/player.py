@@ -1,10 +1,14 @@
 import asyncio
+from collections.abc import Buffer
+from io import BufferedIOBase, BytesIO
 import logging
 from asyncio import Event
 from logging import Logger
+from os import PathLike
+from pathlib import Path
 from typing import NoReturn, Optional
 
-from discord import AudioSource, ClientException, Interaction, Member, StageChannel, VoiceChannel, VoiceClient, VoiceState
+from discord import AudioSource, ClientException, FFmpegOpusAudio, Interaction, Member, StageChannel, VoiceChannel, VoiceClient, VoiceState
 
 from .error import InvalidChannelException
 
@@ -21,8 +25,16 @@ class Player():
         """The currently playing request, if any."""
 
         return self._queue.current
+    
+    @property
+    def is_connected(self) -> bool:
+        return self._client.is_connected() if self._client else False
+    
+    @property
+    def tone(self) -> Optional[AudioSource]:
+        return self._load_tone(self._tone_path) if self._tone_path else None
 
-    def __init__(self, *, timeout: Optional[float] = None) -> None:
+    def __init__(self, *, timeout: Optional[float] = None, tone: Optional[PathLike[str]] = None) -> None:
         """
         """
 
@@ -41,6 +53,9 @@ class Player():
         self._inactive: Event = Event()
         """Signals the player is idle."""
 
+        self._tone_path: Optional[PathLike[str]] = tone
+        """A connection tone file path, if provided."""
+
     async def loop(self) -> NoReturn:
         """
         The audio playback loop.
@@ -55,6 +70,7 @@ class Player():
 
                 # if the voice client is unavailable and the connection is marked as active
                 if self._client is None and self._connection.is_set():
+                    log.warning('Voice client is unavailable. Resetting...')
                     # signal the voice client is not connected
                     self._connection.clear()
                     # restart the loop
@@ -65,10 +81,10 @@ class Player():
                 request: Request = await asyncio.wait_for(self._queue.get(), self._timeout)
 
                 # play the request
-                await self._play(request)                    
-
+                await self._play(request)
+                
             # catch errors that occur during the loop iteration
-            except (TimeoutError, Exception) as exception:
+            except (TimeoutError, ClientException, Exception) as exception:
                 # handle the exception
                 await self._on_exception(exception)
 
@@ -92,6 +108,10 @@ class Player():
         await self._inactive.wait()
         log.debug(f'Finished request {request.metadata.id}: {request.metadata.title}')
 
+        if not self._client or not self._client.is_connected():
+            log.info('Disconnecting...')
+            await self.disconnect()
+
     def _on_finish(self, exception: Optional[Exception]) -> None:
         """
         Called when a request has been fulfilled.
@@ -106,13 +126,16 @@ class Player():
         """
         Called when an exception occurs while handling a request.
         """
-
+        
         # log the exception
         log.error(exception)
-        # try to disconnect the voice connection
-        try: await self.disconnect()
-        # signal the voice client is not connected
-        finally: self._connection.clear()
+
+        try:
+            # try to disconnect the voice connection
+            await self.disconnect()
+
+        except Exception as exception:
+            log.warning(exception)
 
     async def connect(self, interaction: Interaction) -> None:
         """
@@ -141,8 +164,9 @@ class Player():
             
             # connect to the channel and store the voice client
             self._client = await channel.connect()
-            # signal the voice client is now connected
-            self._connection.set()
+
+            # play connection tone
+            await self._play_tone(self.tone)
 
         # catch client exceptions that may occur
         except ClientException as exception:
@@ -150,6 +174,11 @@ class Player():
             log.warning(exception)
             # ignore client exceptions
             pass
+
+        finally:
+            # signal the voice client is now connected
+            self._connection.set()
+
 
     async def disconnect(self, *, force: bool = False) -> None:
         """
@@ -162,21 +191,20 @@ class Player():
                 # raise exception
                 raise ConnectionError('Voice connection unavailable')
             
-            # if the voice client is not connected
-            if not self._client.is_connected():
-                # raise exception
-                raise ConnectionError('Voice connection disconnected')
-            
             # disconnect the voice client from the channel
-            self._client = await self._client.disconnect(force=force)
-            # signal the voice client is not connected
-            self._connection.clear()
+            await self._client.disconnect(force=force)
             
         except Exception as exception:
             # log the exception as a warning
             log.warning(exception)
             # ignore exceptions
             pass
+        
+        finally:
+            # set the voice client to None
+            self._client = None
+            # signal the voice client is not connected
+            self._connection.clear()
 
     async def queue(self, interaction: Interaction, request: Request) -> None:
         """
@@ -217,3 +245,31 @@ class Player():
         await self._queue.clear()
         # stop playback of the current request
         self._client.stop()
+
+    def _load_tone(self, path: PathLike[str]) -> Optional[AudioSource]:
+        # get a path object for the provided path
+        reference: Path = Path(path)
+        # if the reference does not exist at the provided path
+        if not reference.exists(): return None
+
+        with open(path, mode='rb') as file:
+            # read the contents of the file
+            file_data: Buffer = file.read()
+            # store the buffer in a stream
+            file_fp: BufferedIOBase = BytesIO(file_data)
+        # get the audio source from the file object
+        return FFmpegOpusAudio(file_fp, pipe=True)
+
+    async def _play_tone(self, source: Optional[AudioSource]) -> None:
+        # if no source was provided, return
+        if source is None: return
+        # if the voice client is unavailable, return
+        if self._client is None: return
+
+        # signal the player is no longer inactive
+        self._inactive.clear()
+        # play the source
+        self._client.play(source, after=self._on_finish)
+        # wait until signalled that the player is inactive
+        await self._inactive.wait()
+

@@ -33,6 +33,7 @@ class YouTubeRequest(Request):
         self._query: str = query        
         self._before_options: List[str] = before_options if before_options else []
         self._after_options: List[str] = after_options if after_options else []
+        self._parsed: bool = False
 
     async def process(self) -> AudioSource:
         await self.parse()
@@ -56,6 +57,9 @@ class YouTubeRequest(Request):
         Parse the request for detailed metadata
         """
 
+        # if the instance has already been parsed, return
+        if self._parsed is True: return
+
         try:
             # use provided downloader or initialize one if not provided
             downloader: youtube_dl.YoutubeDL = youtube_dl.YoutubeDL(DEFAULTS) # type: ignore
@@ -74,7 +78,10 @@ class YouTubeRequest(Request):
             # if no results are available
             if not result: raise AudioError(f'No results found for {self._query}')
             # assign result to tags property
-            self._tags: Dict[str, Any] = result        
+            self._tags: Dict[str, Any] = result
+            
+            # mark the instance as parsed
+            self._parsed = True      
 
         except DownloadError as exception:
             ansi_escape: re.Pattern[str] = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
