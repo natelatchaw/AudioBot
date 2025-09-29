@@ -1,5 +1,6 @@
 import asyncio
 from collections.abc import Buffer
+from datetime import datetime
 from io import BufferedIOBase, BytesIO
 import logging
 from asyncio import Event
@@ -9,7 +10,7 @@ from pathlib import Path
 from typing import NoReturn, Optional
 import subprocess
 
-from discord import AudioSource, ClientException, FFmpegOpusAudio, Interaction, Member, StageChannel, VoiceChannel, VoiceClient, VoiceState, datetime
+from discord import AudioSource, ClientException, FFmpegOpusAudio, Interaction, Member, StageChannel, VoiceChannel, VoiceClient, VoiceState
 import discord
 
 from .error import InvalidChannelException
@@ -111,6 +112,17 @@ class Player():
             await self._on_exception(exception)
         except Exception as exception:
             await self._on_exception(exception)
+
+        play_ad: bool = False
+        if play_ad:
+            await asyncio.sleep(30)
+            log.info('Playing advertisement')
+            ad_complete: Event = Event()
+            self._client.pause()
+            ad_complete.clear()
+            self._client.play(FFmpegOpusAudio('C:/Users/natel/Downloads/spotify-ad-meme.mp3'), after=lambda exception: ad_complete.set())
+            await ad_complete.wait()            
+            self._client.play(source, after=self._on_finish)
 
         # wait until signalled that the player is inactive
         await self._inactive.wait()
