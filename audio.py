@@ -37,7 +37,7 @@ log.debug(f'Imported companion ModuleType {module.__name__} from {module.__path_
 
 from audio import (AudioError, FileRequest, Metadata, MidiRequest, Player,
                    Request, RequestEmbed, RequestFrequencyEmbed,
-                   RequestRecentEmbed, YouTubeRequest)
+                   RequestRecentEmbed, YouTubeRequest, PlaybackExceptionEmbed)
 
 
 class Audio():
@@ -169,8 +169,7 @@ class Audio():
             await followup.send(embed=embed, file=embed.file if embed.file else discord.utils.MISSING)
 
         except Exception as exception:
-            await followup.send(f'{exception}')
-            raise
+            await followup.send(embed=PlaybackExceptionEmbed(exception, user=interaction.client.user))
 
     @describe(query='A URL or video title to search for')
     async def play(self, interaction: Interaction, query: str) -> None:
@@ -201,8 +200,7 @@ class Audio():
             await followup.send(embed=embed, file=embed.file if embed.file else discord.utils.MISSING)
 
         except Exception as exception:
-            await followup.send(f'{exception}')
-            raise
+            await followup.send(embed=PlaybackExceptionEmbed(exception, user=interaction.client.user))
 
     @describe(midi='The MIDI file to play')
     @describe(sf2='A soundfont file to render the MIDI with')
@@ -229,8 +227,7 @@ class Audio():
             await followup.send(embed=embed, file=embed.file if embed.file else discord.utils.MISSING)
 
         except Exception as exception:
-            await followup.send(f'{exception}')
-            raise
+            await followup.send(embed=PlaybackExceptionEmbed(exception, user=interaction.client.user))
 
     async def queue(self, interaction: discord.Interaction) -> None:
         """
@@ -242,7 +239,7 @@ class Audio():
 
         try:
             # if there is no current request in the player
-            if self.player.current is None: raise AudioError("Nothing is playing right now.")
+            if self.player.current is None: raise AudioError('Nothing is playing right now.')
             
             # get reference to the current request's metadata
             metadata: Metadata = self.player.current.metadata

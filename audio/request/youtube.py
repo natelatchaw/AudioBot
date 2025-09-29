@@ -1,6 +1,7 @@
 import logging
 from logging import Logger
 import re
+import subprocess
 from typing import Any, Dict, List, Literal, Mapping, Optional
 
 import discord
@@ -38,19 +39,23 @@ class YouTubeRequest(Request):
     async def process(self) -> AudioSource:
         await self.parse()
 
-        source: Optional[str] = self._tags.get('url', None)
-        if source is None: raise AudioError(f'Cannot find source media for {self._query}')
+        try:
+            source: Optional[str] = self._tags.get('url', None)
+            if source is None: raise AudioError(f'Cannot find source media for {self._query}')
 
-        bitrate: Optional[int | Any] = self._tags.get('abr', None)
-        bitrate = bitrate if isinstance(bitrate, int) else None
+            bitrate: Optional[int | Any] = self._tags.get('abr', None)
+            bitrate = bitrate if isinstance(bitrate, int) else None
 
-        before_options: str = ' '.join(self._before_options)
-        log.debug(f'Applying prepended streaming parameters: {before_options}')
-        after_options: str = ' '.join(self._after_options)
-        log.debug(f'Applying postpended streaming parameters: {after_options}')
+            before_options: str = ' '.join(self._before_options)
+            log.debug(f'Applying prepended streaming parameters: {before_options}')
+            after_options: str = ' '.join(self._after_options)
+            log.debug(f'Applying postpended streaming parameters: {after_options}')
 
-        return await discord.FFmpegOpusAudio.from_probe(source, before_options=before_options, options=after_options)
-        return discord.FFmpegOpusAudio(source, bitrate=bitrate, codec=None, before_options=before_options, options=after_options)
+            return await discord.FFmpegOpusAudio.from_probe(source, before_options=before_options, options=after_options)
+            return discord.FFmpegOpusAudio(source, bitrate=None, codec=None, before_options=before_options, options=after_options)       
+        
+        except subprocess.CalledProcessError as exception:
+            raise exception
 
     async def parse(self) -> None:
         """
@@ -86,8 +91,8 @@ class YouTubeRequest(Request):
         except DownloadError as exception:
             ansi_escape: re.Pattern[str] = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
             message: str = exception.msg if isinstance(exception.msg, str) else "Unknown error message format"
-            inner: str = ansi_escape.sub('', message) 
-            raise Exception(f'An error occurred during download.\nDetails: {inner}')
+            inner: str = ansi_escape.sub('', message)
+            raise DownloadError('\n'.join(['An error occurred during download.', inner]), exc_info=exception.exc_info)
     
     async def as_embed(self, interaction: discord.Interaction, *, large_image: bool = True, thumbnail_format: Literal['png', 'bmp'] = 'png') -> RequestEmbed:
         return await super().as_embed(interaction, large_image=large_image, thumbnail_format=thumbnail_format)

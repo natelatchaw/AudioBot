@@ -12,6 +12,10 @@ class Queue(Generic[RequestType], Iterable[RequestType]):
         The current request, if any.
         """
         return self._current
+    
+    @current.deleter
+    def current(self) -> None:
+        del self._current
 
     def __init__(self) -> None:
         """

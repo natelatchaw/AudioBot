@@ -7,8 +7,10 @@ from logging import Logger
 from os import PathLike
 from pathlib import Path
 from typing import NoReturn, Optional
+import subprocess
 
-from discord import AudioSource, ClientException, FFmpegOpusAudio, Interaction, Member, StageChannel, VoiceChannel, VoiceClient, VoiceState
+from discord import AudioSource, ClientException, FFmpegOpusAudio, Interaction, Member, StageChannel, VoiceChannel, VoiceClient, VoiceState, datetime
+import discord
 
 from .error import InvalidChannelException
 
@@ -98,15 +100,24 @@ class Player():
         # if the voice client is unavailable, return
         if self._client is None: return
 
-        log.debug(f'Playing request {request.metadata.id}: {request.metadata.title}')
-        # get the audio source from the request
-        source: AudioSource = await request.process()
-        # play the request
-        self._client.play(source, after=self._on_finish)
+        try:
+            log.debug(f'Playing request {request.metadata.id}: {request.metadata.title}')
+            # get the audio source from the request
+            source: AudioSource = await request.process()
+            # play the request
+            self._client.play(source, after=self._on_finish)
+        # if an error occurred during subprocess execution
+        except subprocess.CalledProcessError as exception:
+            await self._on_exception(exception)
+        except Exception as exception:
+            await self._on_exception(exception)
 
         # wait until signalled that the player is inactive
         await self._inactive.wait()
         log.debug(f'Finished request {request.metadata.id}: {request.metadata.title}')
+
+        # clear the current request
+        del self._queue.current
 
         if not self._client or not self._client.is_connected():
             log.info('Disconnecting...')
@@ -117,25 +128,36 @@ class Player():
         Called when a request has been fulfilled.
         """
 
-        # if an exception was provided, log it
-        if exception is not None: log.error(exception)
-        # signal the player is now inactive
-        self._inactive.set()
+        try:
+            # re-raise the exception
+            if exception: raise exception
+        except Exception as exception:
+            # log the exception
+            log.error(exception)
+        finally:
+            # signal the player is now inactive
+            self._inactive.set()
 
     async def _on_exception(self, exception: Exception) -> None:
         """
         Called when an exception occurs while handling a request.
         """
         
-        # log the exception
-        log.error(exception)
-
         try:
-            # try to disconnect the voice connection
-            await self.disconnect()
+            # get the channel instance if available
+            channel: Optional[discord.abc.Connectable] = self._client.channel if self._client else None
+            
+            # if the channel can receive messages
+            if isinstance(channel, discord.abc.Messageable):
+                user: Optional[discord.ClientUser] = self._client.user if self._client else None
+                embed: discord.Embed = PlaybackExceptionEmbed(exception, user=user)
+                await channel.send(embed=embed)
+            # re-raise the exception
+            raise exception
 
         except Exception as exception:
-            log.warning(exception)
+            # log the exception
+            log.error(exception)
 
     async def connect(self, interaction: Interaction) -> None:
         """
@@ -273,3 +295,15 @@ class Player():
         # wait until signalled that the player is inactive
         await self._inactive.wait()
 
+class PlaybackExceptionEmbed(discord.Embed):
+
+    def __init__(self, exception: Exception, *, user: Optional[discord.ClientUser]):
+        color: discord.Color = discord.Color.red()
+        title: str = f'A Playback Exception occurred'
+        description: Optional[str] = str(exception)
+        url: Optional[str] = None
+        timestamp: Optional[datetime] = datetime.now()
+        super().__init__(color=color, title=title, description=description, url=url, timestamp=timestamp)
+
+        if user: self.set_author(name=user.display_name, icon_url=user.avatar.url if user.avatar else None)
+        self.add_field(name='Type', value=exception.__class__.__name__, inline=False)
