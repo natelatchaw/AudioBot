@@ -85,9 +85,14 @@ class Player():
 
                 # play the request
                 await self._play(request)
+
+            # catch timeout exception
+            except (TimeoutError) as exception:
+                # disconnect the client
+                await self.disconnect()
                 
             # catch errors that occur during the loop iteration
-            except (TimeoutError, ClientException, Exception) as exception:
+            except (ClientException, Exception) as exception:
                 # handle the exception
                 await self._on_exception(exception)
 
