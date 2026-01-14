@@ -15,4 +15,7 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - name: Build the Docker image
-      run: docker build . --file Dockerfile --tag my-image-name:$(date +%s)
+      run: |
+        docker login --username natelatchaw --password ${{ secrets.PAT }} ghcr.io
+        docker build . --file Dockerfile --tag AudioBot:latest
+        docker push ghcr.io/natelatchaw/AudioBot:latest
