@@ -1,11 +1,13 @@
 # NOTE: DISCORD_TOKEN environment variable must be provided via --env to the Docker run command
 
-FROM python:3.9
+FROM python:3.12-slim
 
 # Update APT
 RUN ["apt-get", "update", "-y"]
 # Upgrade APT
 RUN ["apt-get", "upgrade", "-y"]
+# Install git
+RUN ["apt-get", "install", "git", "-y"]
 # Install FFmpeg
 RUN ["apt-get", "install", "ffmpeg", "-y"]
 
@@ -23,7 +25,9 @@ COPY logging.ini /opt/
 # Create components directory
 RUN ["mkdir", "-p", "/opt/components"]
 # Copy audio component to directory
-ADD audio.py /opt/components
+COPY audio/ /opt/components/audio
+
+VOLUME ["/config"]
 
 # Run the bot
 CMD ["python3", "-m", "bot", "--logging", "/opt/logging.ini", "--components", "/opt/components"]
