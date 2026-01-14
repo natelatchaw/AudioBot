@@ -24,7 +24,9 @@ COPY logging.ini /opt/
 
 # Create components directory
 RUN ["mkdir", "-p", "/opt/components"]
-# Copy audio component to directory
+# Copy audio component to components directory
+ADD audio.py /opt/components/
+# Copy audio component's companion data to components directory
 COPY audio/ /opt/components/audio
 
 VOLUME ["/config"]
