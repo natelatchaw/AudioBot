@@ -1,4 +1,4 @@
-# NOTE: DISCORD_TOKEN environment variable must be provided via --env to the Docker run command
+# NOTE: TOKEN environment variable must be provided via --env to the Docker run command
 
 FROM python:3.12-slim
 
@@ -19,17 +19,24 @@ COPY requirements.txt /tmp/
 # Install requirements.txt
 RUN ["python3", "-m", "pip", "install", "--requirement", "/tmp/requirements.txt"]
 
+# Create the data directory
+RUN ["mkdir", "-p", "/data"]
+# Declare the data directory as a volume
+VOLUME ["/data"]
+
+# Create the configuration directory
+RUN ["mkdir", "-p", "/config"]
+# Declare the configuration directory as a volume
+VOLUME ["/config"]
 # Copy logging configuration to /opt
-COPY logging.ini /opt/
+COPY logging.ini /config/
 
 # Create components directory
 RUN ["mkdir", "-p", "/opt/components"]
 # Copy audio component to components directory
-ADD audio.py /opt/components/
+COPY audio.py /opt/components/
 # Copy audio component's companion data to components directory
 COPY audio/ /opt/components/audio
 
-VOLUME ["/config"]
-
 # Run the bot
-CMD ["python3", "-m", "bot", "--logging", "/opt/logging.ini", "--components", "/opt/components"]
+CMD ["python3", "-m", "bot", "--logging", "/config/logging.ini", "--config", "/config/", "--components", "/opt/components/"]
