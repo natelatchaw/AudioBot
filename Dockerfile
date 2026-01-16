@@ -11,6 +11,17 @@ RUN ["apt-get", "install", "git", "-y"]
 # Install FFmpeg
 RUN ["apt-get", "install", "ffmpeg", "-y"]
 
+# Install curl
+RUN ["apt-get", "install", "curl", "-y"]
+# Install unzip
+RUN ["apt-get", "install", "unzip", "-y"]
+# Download install script for deno
+RUN ["curl", "--fail", "--silent", "--show-error", "--location", "--output", "/tmp/install.sh", "https://deno.land/install.sh"]
+# Make the deno install script executable
+RUN ["chmod", "+x", "/tmp/install.sh"]
+# Run the deno install script
+RUN ["/tmp/install.sh"]
+
 # Upgrade pip
 RUN ["python3", "-m", "pip", "install", "--upgrade", "pip"]
 
