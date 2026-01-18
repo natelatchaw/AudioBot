@@ -1,7 +1,7 @@
 # NOTE: TOKEN environment variable must be provided via --env to the Docker run command
 
 # Get the Deno binary
-FROM denoland/deno:bin-1.14.0 AS deno_installer
+FROM denoland/deno:bin-2.6.5 AS deno_installer
 
 FROM python:3.12-slim
 
@@ -19,7 +19,7 @@ RUN ["apt-get", "install", "python3", "-y"]
 RUN ["python3", "-m", "pip", "install", "--upgrade", "pip"]
 
 # Copy the Deno binary from the Deno installer stage into the image
-COPY --from=deno_installer /deno /usr/local/bin/deno
+COPY --from=deno_installer /deno /usr/bin/deno
 
 # Copy requirements.txt to /tmp
 COPY requirements.txt /tmp/
