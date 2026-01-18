@@ -1,29 +1,25 @@
 # NOTE: TOKEN environment variable must be provided via --env to the Docker run command
 
+# Get the Deno binary
+FROM denoland/deno:bin-1.14.0 AS deno_installer
+
 FROM python:3.12-slim
 
 # Update APT
 RUN ["apt-get", "update", "-y"]
-# Upgrade APT
-RUN ["apt-get", "upgrade", "-y"]
+
 # Install git
 RUN ["apt-get", "install", "git", "-y"]
 # Install FFmpeg
 RUN ["apt-get", "install", "ffmpeg", "-y"]
-
-# Install curl
-RUN ["apt-get", "install", "curl", "-y"]
-# Install unzip
-RUN ["apt-get", "install", "unzip", "-y"]
-# Download install script for deno
-RUN ["curl", "--fail", "--silent", "--show-error", "--location", "--output", "/tmp/install.sh", "https://deno.land/install.sh"]
-# Make the deno install script executable
-RUN ["chmod", "+x", "/tmp/install.sh"]
-# Run the deno install script
-RUN ["/tmp/install.sh"]
+# Install python
+RUN ["apt-get", "install", "python3", "-y"]
 
 # Upgrade pip
 RUN ["python3", "-m", "pip", "install", "--upgrade", "pip"]
+
+# Copy the Deno binary from the Deno installer stage into the image
+COPY --from=deno_installer /deno /usr/local/bin/deno
 
 # Copy requirements.txt to /tmp
 COPY requirements.txt /tmp/
