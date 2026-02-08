@@ -2,7 +2,7 @@ git+https://github.com/natelatchaw/DiscordBot
 
 discord.py[voice]
 requests
-yt-dlp
+yt-dlp[default]
 Pillow
 mutagen
 typing-extensions
