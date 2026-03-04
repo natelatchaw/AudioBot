@@ -8,8 +8,13 @@ import discord
 import numpy as np
 from discord import AudioSource
 from numpy.typing import NDArray
-from pretty_midi import PrettyMIDI
-from scipy.io.wavfile import write as write_wav
+try:
+    from pretty_midi import PrettyMIDI
+    from scipy.io.wavfile import write as write_wav
+    fluidsynth_support: bool = True
+except:
+    pass
+    fluidsynth_support: bool = False
 
 from ..embed import RequestEmbed
 from ..metadata import Metadata
@@ -29,6 +34,8 @@ class MidiRequest(Request):
         return Metadata(id, user_id=user_id, title=title, artist=None, hyperlink=hyperlink, thumbnail=None)
 
     def __init__(self, interation: discord.Interaction, midi: discord.Attachment, *, sf2: Optional[discord.Attachment] = None):
+        if not fluidsynth_support:
+            raise Exception('Fluidsynth is not installed on this machine.')
         self._interaction: discord.Interaction = interation
         self._midi: discord.Attachment = midi
         self._sf2: Optional[discord.Attachment] = sf2
