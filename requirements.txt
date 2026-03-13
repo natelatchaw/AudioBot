@@ -10,3 +10,4 @@ typing-extensions
 pyfluidsynth
 pretty_midi
 scipy
+scipy-stubs

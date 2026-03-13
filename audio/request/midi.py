@@ -2,19 +2,12 @@ import logging
 from collections.abc import Buffer
 from io import BufferedIOBase, BytesIO
 from pathlib import Path
-from typing import Literal, Optional
+from typing import Any, Literal, Optional
 
 import discord
 import numpy as np
 from discord import AudioSource
 from numpy.typing import NDArray
-try:
-    from pretty_midi import PrettyMIDI
-    from scipy.io.wavfile import write as write_wav
-    fluidsynth_support: bool = True
-except:
-    pass
-    fluidsynth_support: bool = False
 
 from ..embed import RequestEmbed
 from ..metadata import Metadata
@@ -34,13 +27,17 @@ class MidiRequest(Request):
         return Metadata(id, user_id=user_id, title=title, artist=None, hyperlink=hyperlink, thumbnail=None)
 
     def __init__(self, interation: discord.Interaction, midi: discord.Attachment, *, sf2: Optional[discord.Attachment] = None):
-        if not fluidsynth_support:
-            raise Exception('Fluidsynth is not installed on this machine.')
         self._interaction: discord.Interaction = interation
         self._midi: discord.Attachment = midi
         self._sf2: Optional[discord.Attachment] = sf2
 
     async def process(self) -> AudioSource:
+        try:
+            from pretty_midi import PrettyMIDI # pyright: ignore[reportMissingTypeStubs]
+            from scipy.io.wavfile import write as write_wav
+        except:
+            raise Exception('Fluidsynth is not installed on this machine.')
+        
         midi_data: Buffer = await self._midi.read()
         midi_fp: BytesIO = BytesIO(midi_data)
 
@@ -51,11 +48,11 @@ class MidiRequest(Request):
         sampling_rate: int = 44100
 
         # initialize midi with data and synthesize to waveform
-        waveform: NDArray = PrettyMIDI(midi_file=midi_fp).fluidsynth(fs=sampling_rate, sf2_path=str(sf2_path) if sf2_path else None)
+        waveform: NDArray[Any] = PrettyMIDI(midi_file=midi_fp).fluidsynth(fs=sampling_rate, sf2_path=str(sf2_path) if sf2_path else None)
         # calculate max amplitude
         amplitude: int = np.iinfo(np.int16).max
         # calculate the maximum of the waveform
-        maximum: NDArray = np.max(np.abs(waveform))
+        maximum: NDArray[Any] = np.max(np.abs(waveform))
         # normalize the waveform given the waveform's maximum and the amplitude
         waveform = (waveform / maximum) * amplitude
         # cast the waveform to a 16-bit array

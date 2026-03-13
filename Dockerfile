@@ -14,6 +14,8 @@ RUN ["apt-get", "install", "git", "-y"]
 RUN ["apt-get", "install", "ffmpeg", "-y"]
 # Install python
 RUN ["apt-get", "install", "python3", "-y"]
+# Install fluidsynth
+RUN ["apt-get", "install", "fluidsynth", "-y"]
 
 # Upgrade pip
 RUN ["python3", "-m", "pip", "install", "--upgrade", "pip"]
